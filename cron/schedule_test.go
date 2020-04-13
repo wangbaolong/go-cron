@@ -31,7 +31,7 @@ func TestScheduled(t *testing.T) {
     })
 
     _ = schedule.ScheduleWithSpec("specTask", "@every 10s", func() {
-        logger.Info("D task running spend time 2min")
+        logger.Info("E task running spend time 2min")
         time.Sleep(time.Minute * 2)
     })
     waitGroup.Wait()
