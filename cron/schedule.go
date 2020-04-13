@@ -5,7 +5,7 @@ import (
     "time"
 )
 
-type scheduled struct {
+type schedule struct {
     queue *DelayQueue
     defParser robfigcron.Parser
 }
@@ -15,7 +15,7 @@ type scheduled struct {
 // name the task name
 // delay the time from now to delay execution
 // runnable the task to execute
-func (s *scheduled) Scheduled(name string, delay uint64, runnable func()) {
+func (s *schedule) Schedule(name string, delay uint64, runnable func()) {
     s.queue.Offer(NewTask(name, int64(delay), 0, runnable))
 }
 
@@ -24,7 +24,7 @@ func (s *scheduled) Scheduled(name string, delay uint64, runnable func()) {
 // name the task name
 // spec the cron spec
 // runnable the task to execute
-func (s *scheduled) ScheduledWithSpec(name string, spec string, runnable func()) error {
+func (s *schedule) ScheduleWithSpec(name string, spec string, runnable func()) error {
     var scheduled, err = s.defParser.Parse(spec)
     if err != nil {
         return err
@@ -44,7 +44,7 @@ func (s *scheduled) ScheduledWithSpec(name string, spec string, runnable func())
 // initialDelay the time to delay first execution
 // delay the delay between the termination of one
 // runnable the task to execute
-func (s *scheduled) ScheduleWithFixedDelay(name string, initialDelay uint64, delay uint64, runnable func()) {
+func (s *schedule) ScheduleWithFixedDelay(name string, initialDelay uint64, delay uint64, runnable func()) {
     s.queue.Offer(NewTask(name, int64(initialDelay), int64(-delay), runnable))
 }
 
@@ -59,16 +59,16 @@ func (s *scheduled) ScheduleWithFixedDelay(name string, initialDelay uint64, del
 // termination of the executor.  If any execution of this task
 // takes longer than its period, then subsequent executions
 // may start late, but will not concurrently execute.
-func (s *scheduled) ScheduleAtFixedRate(name string, initialDelay uint64, period uint64, runnable func()) {
+func (s *schedule) ScheduleAtFixedRate(name string, initialDelay uint64, period uint64, runnable func()) {
     s.queue.Offer(NewTask(name, int64(initialDelay), int64(period), runnable))
 }
 
 // uses the provided logger.
-func (s *scheduled) Logger(log Logger){
+func (s *schedule) Logger(log Logger){
     logger = log
 }
 
-func (s *scheduled) start() {
+func (s *schedule) start() {
     go func() {
         for {
             var delayed = s.queue.TakeWithTimeout(60)
@@ -79,7 +79,7 @@ func (s *scheduled) start() {
     }()
 }
 
-func (s *scheduled) runWithRecovery(task *Task) {
+func (s *schedule) runWithRecovery(task *Task) {
     defer func() {
         if r := recover(); r != nil {
             // TODO
@@ -103,16 +103,16 @@ func (s *scheduled) runWithRecovery(task *Task) {
     }
 }
 
-func (s *scheduled) shutdown() {
+func (s *schedule) Shutdown() {
     // TODO
 }
 
-func (s *scheduled) shutdownNow() {
+func (s *schedule) ShutdownNow() {
     // TODO
 }
 
-func NewScheduled() *scheduled {
-    var s = &scheduled{queue: NewDelayQueue(),
+func NewSchedule() *schedule {
+    var s = &schedule{queue: NewDelayQueue(),
         defParser: robfigcron.NewParser(
             robfigcron.Second | robfigcron.Minute | robfigcron.Hour | robfigcron.Dom | robfigcron.Month | robfigcron.DowOptional | robfigcron.Descriptor,
             )}
