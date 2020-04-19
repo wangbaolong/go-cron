@@ -23,7 +23,7 @@ func NewDelayQueue() *DelayQueue {
 
 // Add delay task
 func (d *DelayQueue) Offer(ele Delayed) {
-    logger.Info("DelayQueue Offer Exec")
+    log("DelayQueue Offer Exec")
 	d.lock.Lock()
 	defer d.lock.Unlock()
     heap.Push(d.queue, ele)
@@ -38,7 +38,7 @@ func (d *DelayQueue) Offer(ele Delayed) {
 // If there is a task in the queue and it has run out of time, the task is returned immediately
 // Timeout units are seconds
 func (d *DelayQueue) TakeWithTimeout(timeout int64) Delayed {
-    logger.Info("DelayQueue TakeWithTimeout Exec")
+    log("DelayQueue TakeWithTimeout Exec")
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	for {
@@ -65,7 +65,7 @@ func (d *DelayQueue) TakeWithTimeout(timeout int64) Delayed {
 			} else {
 				timeout = d.waitWithTimeout(delay)
 			}
-            logger.Info("DelayQueue TakeWithTimeout surplus timeout:", timeout)
+            log("DelayQueue TakeWithTimeout surplus timeout:", timeout)
 		}
 	}
 }
@@ -73,7 +73,7 @@ func (d *DelayQueue) TakeWithTimeout(timeout int64) Delayed {
 
 // wait and release lock and set timeout wake up
 func (d *DelayQueue) waitWithTimeout(timeout int64) int64 {
-    logger.Info("DelayQueue waitWithTimeout:", timeout)
+    log("DelayQueue waitWithTimeout:", timeout)
     timer := time.NewTimer(time.Duration(timeout) * time.Second)
     d.timerMap[timer] = timer
     d.lock.Unlock()
@@ -97,5 +97,11 @@ func (d *DelayQueue) signal() {
 // Gets the number of tasks in the queue
 func (d *DelayQueue) Len() int {
 	return d.queue.Len()
+}
+
+func log(msg string, keysAndValues ...interface{}) {
+    if false {
+        logger.Info(msg, keysAndValues)
+    }
 }
 

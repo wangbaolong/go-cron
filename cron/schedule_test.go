@@ -8,11 +8,11 @@ import (
 
 func TestScheduled(t *testing.T) {
     var waitGroup sync.WaitGroup
-    waitGroup.Add(1)
+    waitGroup.Add(2)
     var schedule = NewSchedule()
-    schedule.Schedule("Scheduled", 300, func() {
-            logger.Info("A task exec")
-            waitGroup.Done()
+    schedule.Schedule("Scheduled", 180, func() {
+           logger.Info("A task exec")
+           waitGroup.Done()
     })
 
     schedule.ScheduleAtFixedRate("ScheduleAtFixedRate", 5, 5, func() {
@@ -34,5 +34,11 @@ func TestScheduled(t *testing.T) {
         logger.Info("E task running spend time 2min")
         time.Sleep(time.Minute * 2)
     })
+    _ = schedule.Schedule("Shutdown", 200, func() {
+        schedule.ShutdownNow()
+        logger.Info("schedule ShutdownNow")
+        waitGroup.Done()
+    })
+
     waitGroup.Wait()
 }

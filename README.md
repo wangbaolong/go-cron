@@ -29,4 +29,7 @@ A support cron expression、 fixed-rate、fixed-delay cron lib
         logger.Info("E task running spend time 2min")
         time.Sleep(time.Minute * 2)
     })
+
+    schedule.ShutdownNow()
+    
 ```
