@@ -36,6 +36,6 @@ import "github.com/wangbaolong/go-cron/cron"
         time.Sleep(time.Minute * 2)
     })
 
-    schedule.ShutdownNow()
+    // schedule.ShutdownNow()
     
 ```
