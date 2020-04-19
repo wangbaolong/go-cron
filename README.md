@@ -11,7 +11,7 @@ import "github.com/wangbaolong/go-cron/cron"
 ```go
     
 
-    var schedule = NewSchedule()
+    var schedule = cron.NewSchedule()
     schedule.Schedule("Scheduled", 300, func() {
                 logger.Info("A task exec")
     })
