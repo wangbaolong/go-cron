@@ -5,6 +5,12 @@ A support cron expression、 fixed-rate、fixed-delay cron lib
 ## example
 
 ```go
+import "github.com/wangbaolong/go-cron/cron"
+```
+
+```go
+    
+
     var schedule = NewSchedule()
     schedule.Schedule("Scheduled", 300, func() {
                 logger.Info("A task exec")
