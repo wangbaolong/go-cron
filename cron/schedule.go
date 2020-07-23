@@ -26,11 +26,11 @@ type schedule struct {
 // name the task name
 // delay the time from now to delay execution
 // runnable the task to execute
-func (s *schedule) Schedule(name string, delay uint64, runnable func()) error {
+func (s *schedule) Schedule(name string, delay time.Duration, runnable func()) error {
     if s.isShutdown() {
         return ErrScheduleShutdown
     }
-    s.queue.Offer(NewTask(name, int64(delay), 0, runnable))
+    s.queue.Offer(NewTask(name, delay, 0, runnable))
     return nil
 }
 
@@ -62,11 +62,11 @@ func (s *schedule) ScheduleWithSpec(name string, spec string, runnable func()) e
 // initialDelay the time to delay first execution
 // delay the delay between the termination of one
 // runnable the task to execute
-func (s *schedule) ScheduleWithFixedDelay(name string, initialDelay uint64, delay uint64, runnable func()) error {
+func (s *schedule) ScheduleWithFixedDelay(name string, initialDelay time.Duration, delay time.Duration, runnable func()) error {
     if s.isShutdown() {
         return ErrScheduleShutdown
     }
-    s.queue.Offer(NewTask(name, int64(initialDelay), int64(-delay), runnable))
+    s.queue.Offer(NewTask(name, initialDelay, -delay, runnable))
     return nil
 }
 
@@ -81,11 +81,11 @@ func (s *schedule) ScheduleWithFixedDelay(name string, initialDelay uint64, dela
 // termination of the executor.  If any execution of this task
 // takes longer than its period, then subsequent executions
 // may start late, but will not concurrently execute.
-func (s *schedule) ScheduleAtFixedRate(name string, initialDelay uint64, period uint64, runnable func()) error {
+func (s *schedule) ScheduleAtFixedRate(name string, initialDelay time.Duration, period time.Duration, runnable func()) error {
     if s.isShutdown() {
         return ErrScheduleShutdown
     }
-    s.queue.Offer(NewTask(name, int64(initialDelay), int64(period), runnable))
+    s.queue.Offer(NewTask(name, initialDelay, period, runnable))
     return nil
 }
 
@@ -97,7 +97,7 @@ func (s *schedule) Logger(log Logger){
 func (s *schedule) start() {
     go func() {
         for {
-            var delayed = s.queue.TakeWithTimeout(60)
+            var delayed = s.queue.TakeWithTimeout(time.Second * 60)
             if delayed != nil && s.status != statusShowdownNow {
                 s.runWithRecovery(delayed.(*Task))
             }
@@ -106,16 +106,12 @@ func (s *schedule) start() {
 }
 
 func (s *schedule) runWithRecovery(task *Task) {
+    if task == nil {
+        return
+    }
     var err = s.pool.Submit(func() {
-        defer func() {
-            if r := recover(); r != nil {
-                var err = r.(error)
-                logger.Error(err, err.Error(), "runWithRecovery recover")
-            }
-        }()
-
         if task.schedule != nil {
-            task.executeTime = task.schedule.Next(time.Now()).Unix()
+            task.executeTime = task.schedule.Next(time.Now())
             s.queue.Offer(task)
         }
         logger.Info(task.name, " task run start")
@@ -123,9 +119,11 @@ func (s *schedule) runWithRecovery(task *Task) {
         logger.Info(task.name, " task run end")
         if task.schedule == nil && task.period != 0 {
             if task.period > 0 {
-                task.executeTime += task.period
+                //task.executeTime += task.period
+                task.executeTime.Add(task.period)
             } else if task.period < 0 {
-                task.executeTime = time.Now().Unix() - task.period
+                //task.executeTime = time.Now().Unix() - task.period
+                task.executeTime = time.Now().Add(task.period * -1)
             }
             s.queue.Offer(task)
         }
@@ -135,10 +133,10 @@ func (s *schedule) runWithRecovery(task *Task) {
     }
 }
 
-
 func (s *schedule) ShutdownNow() {
     atomic.AddInt32(&s.status, statusShowdownNow)
     s.pool.Release()
+    s.queue.Release()
 }
 
 func (s *schedule) isShutdown() bool {

@@ -2,95 +2,82 @@ package cron
 
 import (
     "container/heap"
-    "sync"
     "time"
 )
 
 type Delayed interface {
 	Comparable
-	GetDelay() int64
+	GetDelay() time.Duration
 }
 
 type DelayQueue struct {
 	queue *PriorityQueue
-	lock  sync.Mutex
-    timerMap map[*time.Timer]*time.Timer
+	reader chan Delayed
+	writer chan Delayed
 }
 
 func NewDelayQueue() *DelayQueue {
-	return &DelayQueue{queue: &PriorityQueue{}, timerMap: make(map[*time.Timer]*time.Timer)}
+    queue := DelayQueue{
+        queue: &PriorityQueue{},
+        reader: make(chan Delayed, 0),
+        writer: make(chan Delayed, 0),
+    }
+    go queue.start()
+	return &queue
+}
+
+func (d *DelayQueue) Release() {
+    d.queue = nil
+    close(d.reader)
+    close(d.writer)
 }
 
 // Add delay task
 func (d *DelayQueue) Offer(ele Delayed) {
-    log("DelayQueue Offer Exec")
-	d.lock.Lock()
-	defer d.lock.Unlock()
-    heap.Push(d.queue, ele)
-	first := (*d.queue)[0].(Delayed)
-	if first == ele {
-        d.signal()
-    }
+    d.writer <- ele
 }
 
 
 // Gets a deferred task; no task blocks a timeout for a long time，if timeout return nil
 // If there is a task in the queue and it has run out of time, the task is returned immediately
 // Timeout units are seconds
-func (d *DelayQueue) TakeWithTimeout(timeout int64) Delayed {
-    log("DelayQueue TakeWithTimeout Exec")
-	d.lock.Lock()
-	defer d.lock.Unlock()
-	for {
-		var first Delayed
-		if d.queue.Len() > 0 {
-			first = (*d.queue)[0].(Delayed)
-		}
-		if first == nil {
-			if timeout <= 0 {
-				return nil
-			} else {
-				timeout = d.waitWithTimeout(timeout)
-			}
-		} else {
-			delay := first.GetDelay()
-			if delay <= 0 {
-				return heap.Pop(d.queue).(Delayed)
-			} else if timeout <= 0 {
-				return nil
-			}
-			first = nil
-			if timeout < delay {
-				timeout = d.waitWithTimeout(timeout)
-			} else {
-				timeout = d.waitWithTimeout(delay)
-			}
-            log("DelayQueue TakeWithTimeout surplus timeout:", timeout)
-		}
-	}
-}
-
-
-// wait and release lock and set timeout wake up
-func (d *DelayQueue) waitWithTimeout(timeout int64) int64 {
-    log("DelayQueue waitWithTimeout:", timeout)
-    timer := time.NewTimer(time.Duration(timeout) * time.Second)
-    d.timerMap[timer] = timer
-    d.lock.Unlock()
-    absTimeout := time.Now().Unix() + timeout
+func (d *DelayQueue) TakeWithTimeout(timeout time.Duration) Delayed {
+    timer := time.NewTimer(timeout)
     select {
     case <-timer.C:
-        d.lock.Lock()
-        delete(d.timerMap, timer)
-        return absTimeout - time.Now().Unix()
+        return nil
+    case newDelay := <-d.reader:
+        return newDelay
     }
 }
 
-// Just iterate out a timer to wake up directly
-func (d *DelayQueue) signal() {
-    for _, val := range d.timerMap {
-        val.Reset(0)
-        break
+func (d *DelayQueue) start() {
+    for {
+        var first Delayed
+        if d.queue.Len() > 0 {
+            first = (*d.queue)[0].(Delayed)
+        }
+        if first != nil {
+            delay := first.GetDelay()
+            if delay <= 0 {
+                delay := heap.Pop(d.queue).(Delayed)
+                d.reader <- delay
+            } else {
+                timer := time.NewTimer(delay)
+                select {
+                case <-timer.C:
+                case newDelay := <- d.writer:
+                    if newDelay != nil {
+                        heap.Push(d.queue, newDelay)
+                    }
+                }
+            }
+        } else {
+            newDelay := <- d.writer
+            if newDelay != nil {
+                heap.Push(d.queue, newDelay)
+            }
+        }
     }
 }
 

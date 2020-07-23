@@ -17,22 +17,22 @@ import "github.com/wangbaolong/go-cron/cron"
     })
 
     schedule.ScheduleAtFixedRate("ScheduleAtFixedRate", 5, 5, func() {
-        logger.Info("B task running spend time 10s")
+        logger.Info("B task running spend time initDelay:5s period:5")
         time.Sleep(time.Second * 10)
     })
 
     schedule.ScheduleWithFixedDelay("ScheduleWithFixedDelay", 5, 5, func() {
-        logger.Info("C task running spend time 10s")
+        logger.Info("C task running spend time initDelay:5s period:5")
         time.Sleep(time.Second * 10)
     })
 
     _ = schedule.ScheduleWithSpec("specTask", "*/20 * * * * *", func() {
-        logger.Info("D task running spend time 2min")
+        logger.Info("D task running spend time 20s")
         time.Sleep(time.Minute * 2)
     })
 
     _ = schedule.ScheduleWithSpec("specTask", "@every 10s", func() {
-        logger.Info("E task running spend time 2min")
+        logger.Info("E task running spend time @every 10s")
         time.Sleep(time.Minute * 2)
     })
 
